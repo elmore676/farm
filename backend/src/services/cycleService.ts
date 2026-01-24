@@ -357,6 +357,32 @@ export class CycleService {
       avgFeedPerCycle: cycles.length > 0 ? totalFeedUsed / cycles.length : 0,
     };
   }
+
+  async getWeightSamples(cycleId: string) {
+    const samples = await prisma.weightSample.findMany({
+      where: { cycleId },
+      orderBy: { date: 'desc' },
+    });
+    return samples;
+  }
+
+  async addWeightSample(cycleId: string, data: any) {
+    // Verify cycle exists
+    const cycle = await prisma.cycle.findUnique({ where: { id: cycleId } });
+    if (!cycle) throw new Error('Cycle not found');
+
+    const sample = await prisma.weightSample.create({
+      data: {
+        cycleId,
+        date: new Date(data.date),
+        averageWeight: parseFloat(data.averageWeight),
+        sampleCount: parseInt(data.sampleCount),
+        minWeight: data.minWeight ? parseFloat(data.minWeight) : undefined,
+        maxWeight: data.maxWeight ? parseFloat(data.maxWeight) : undefined,
+      },
+    });
+    return sample;
+  }
 }
 
 export default new CycleService();
