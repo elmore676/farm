@@ -1,0 +1,750 @@
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  admin
+  manager
+  viewer
+}
+
+enum CycleStatus {
+  planned
+  active
+  completed
+  maintenance
+  cancelled
+}
+
+enum CageStatus {
+  active
+  idle
+  maintenance
+}
+
+enum EquipmentStatus {
+  operational
+  maintenance
+  faulty
+}
+
+enum PayoutStatus {
+  pending
+  processing
+  paid
+  failed
+}
+
+enum ExpenseCategory {
+  fingerlings
+  feed
+  labor
+  maintenance
+  utilities
+  operations
+  other
+}
+
+enum RevenueType {
+  fish_sale
+  byproduct
+  other
+}
+
+enum WaterAlertLevel {
+  normal
+  warning
+  critical
+}
+
+enum TransactionType {
+  revenue
+  expense
+  payout
+  income
+  loss
+  transfer
+}
+
+enum NotificationType {
+  water_quality_alert
+  mortality_alert
+  feed_stock_warning
+  harvest_reminder
+  payout_notification
+  task_assignment
+  system_update
+  report_generated
+  auth_otp
+  password_reset
+}
+
+enum NotificationChannel {
+  in_app
+  email
+  sms
+  push
+  webhook
+}
+
+enum NotificationFrequency {
+  immediate
+  daily_digest
+  weekly
+}
+
+enum NotificationPriority {
+  critical
+  high
+  medium
+  low
+}
+
+enum InvestorStatus {
+  active
+  pending
+  inactive
+  verified
+  rejected
+}
+
+enum KYCStatus {
+  verified
+  pending
+  rejected
+}
+
+model User {
+  id            String         @id @default(uuid())
+  name          String
+  email         String         @unique
+  passwordHash  String
+  role          Role           @default(viewer)
+  refreshTokens RefreshToken[]
+  notifications Notification[]
+  notificationPreferences NotificationPreference?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model RefreshToken {
+  id        String    @id
+  token     String
+  user      User      @relation(fields: [userId], references: [id])
+  userId    String
+  expiresAt DateTime
+  revokedAt DateTime?
+  userAgent String?
+  ip        String?
+  createdAt DateTime  @default(now())
+}
+
+model Investor {
+  id              String         @id @default(uuid())
+  name            String
+  email           String?
+  phone           String?
+  address         String?
+  idNumber        String?
+  bankName        String?
+  accountNumber   String?
+  status          InvestorStatus @default(active)
+  kycStatus       KYCStatus      @default(pending)
+  totalInvestment Float          @default(0)
+  totalReturns    Float          @default(0)
+  roi             Float          @default(0)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  investments     Investment[]
+  payouts         Payout[]
+  transactions    Transaction[]
+}
+
+model Investment {
+  id         String    @id @default(uuid())
+  investor   Investor  @relation(fields: [investorId], references: [id], onDelete: Restrict)
+  investorId String
+  cycle      Cycle?    @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+  cycleId    String?
+  cage       Cage?     @relation(fields: [cageId], references: [id], onDelete: Restrict)
+  cageId     String?
+  amount     Float
+  shareUnits Float     @default(1)
+  unitPrice  Float     @default(0)
+  roiPercent Float
+  startDate  DateTime
+  endDate    DateTime?
+  status     String
+  createdAt  DateTime  @default(now())
+  
+  @@index([investorId])
+  @@index([cycleId])
+  @@index([cageId])
+}
+
+model Cage {
+  id          String         @id @default(uuid())
+  code        String?
+  name        String
+  species     String?
+  // Location
+  location    String?        // Legacy/fallback string
+  lat         Float?
+  lng         Float?
+  locationLabel String?
+  // Capacity
+  capacity    Int?
+  currentStock Int?          @default(0)
+  // Status
+  status      CageStatus     @default(idle)
+  // Dimensions
+  length      Float?
+  width       Float?
+  depth       Float?
+  // Assets
+  photos      String[]
+  equipment   Equipment[]
+  
+  createdAt   DateTime       @default(now())
+  cycles      Cycle[]
+  investments Investment[]
+  feedUsage   FeedUsage[]
+  waterLogs   WaterQuality[]
+  expenses    Expense[]
+  revenues    Revenue[]
+  budgets     BudgetAllocation[]
+
+  // IoT Relations
+  iotDevices         IoTDevice[]
+  sensorReadings     SensorReading[]
+  sensorAggregations SensorAggregation[]
+  alerts             IoTAlert[]
+  alertThresholds    AlertThreshold[]
+  mlPredictions      MLPrediction[]
+}
+
+model Equipment {
+  id              String           @id @default(uuid())
+  cage            Cage             @relation(fields: [cageId], references: [id])
+  cageId          String
+  name            String
+  type            String
+  status          EquipmentStatus  @default(operational)
+  lastMaintenance DateTime?
+  nextMaintenance DateTime?
+  createdAt       DateTime         @default(now())
+}
+
+model Cycle {
+  id           String         @id @default(uuid())
+  cage         Cage           @relation(fields: [cageId], references: [id], onDelete: Restrict)
+  cageId       String
+  species      String?
+  startDate    DateTime
+  endDate      DateTime?
+  initialStock Int?
+  harvestedStock Int?
+  mortality    Int?
+  fcr          Float?
+  revenue      Float?
+  profit       Float?
+  biomassStart Float?
+  biomassEnd   Float?
+  status       CycleStatus    @default(planned)
+  dailyLogs    DailyLog[]
+  harvests     Harvest[]
+  feedUsage    FeedUsage[]
+  waterLogs    WaterQuality[]
+  investments  Investment[]
+  payouts      Payout[]
+  expenses     Expense[]
+  revenues     Revenue[]
+  budgets      BudgetAllocation[]
+  weightSamples WeightSample[]
+  transactions Transaction[]
+  createdAt    DateTime       @default(now())
+  
+  @@index([cageId])
+  @@index([status])
+}
+
+model WeightSample {
+  id            String   @id @default(uuid())
+  cycle         Cycle    @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  cycleId       String
+  date          DateTime
+  averageWeight Float
+  sampleCount   Int
+  minWeight     Float?
+  maxWeight     Float?
+  createdAt     DateTime @default(now())
+  
+  @@index([cycleId])
+  @@index([date])
+}
+
+model DailyLog {
+  id         String   @id @default(uuid())
+  cycle      Cycle    @relation(fields: [cycleId], references: [id])
+  cycleId    String
+  date       DateTime
+  feedUsedKg Float?
+  waterTemp  Float?
+  notes      String?
+  createdAt  DateTime @default(now())
+}
+
+model Harvest {
+  id         String   @id @default(uuid())
+  cycle      Cycle    @relation(fields: [cycleId], references: [id])
+  cycleId    String
+  date       DateTime
+  weightKg   Float
+  pricePerKg Float?
+  createdAt  DateTime @default(now())
+}
+
+model FeedStock {
+  id           String    @id @default(uuid())
+  feedType     String
+  batchNumber  String?
+  quantityKg   Float
+  costPerKg    Float
+  expiryDate   DateTime?
+  supplierName String?
+  createdAt    DateTime  @default(now())
+}
+
+model FeedUsage {
+  id         String   @id @default(uuid())
+  cycle      Cycle?   @relation(fields: [cycleId], references: [id])
+  cycleId    String?
+  cage       Cage?    @relation(fields: [cageId], references: [id])
+  cageId     String?
+  feedType   String
+  quantityKg Float
+  date       DateTime
+  time       String?
+  wastageKg  Float?
+  createdAt  DateTime @default(now())
+}
+
+model WaterQuality {
+  id              String          @id @default(uuid())
+  cage            Cage?           @relation(fields: [cageId], references: [id])
+  cageId          String?
+  cycle           Cycle?          @relation(fields: [cycleId], references: [id])
+  cycleId         String?
+  recordedAt      DateTime
+  temperature     Float?
+  ph              Float?
+  dissolvedOxygen Float?
+  ammonia         Float?
+  nitrite         Float?
+  nitrate         Float?
+  turbidity       Float?
+  salinity        Float?
+  source          String?
+  notes           String?
+  alertLevel      WaterAlertLevel @default(normal)
+  createdAt       DateTime        @default(now())
+}
+
+model Payout {
+  id               String         @id @default(uuid())
+  investor         Investor       @relation(fields: [investorId], references: [id], onDelete: Restrict)
+  investorId       String
+  cycle            Cycle?         @relation(fields: [cycleId], references: [id], onDelete: Restrict)
+  cycleId          String?
+  amount           Float
+  revenueShare     Float?         @default(0)
+  profitShare      Float?         @default(0)
+  status           PayoutStatus   @default(pending)
+  paidAt           DateTime?
+  reference        String?
+  paymentReference String?
+  transactions     Transaction[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  
+  @@index([investorId])
+  @@index([cycleId])
+  @@index([status])
+}
+
+model Transaction {
+  id               String          @id @default(uuid())
+  type             TransactionType
+  amount           Float
+  description      String
+  reference        String?
+  investor         Investor?       @relation(fields: [investorId], references: [id], onDelete: SetNull)
+  investorId       String?
+  payout           Payout?         @relation(fields: [payoutId], references: [id], onDelete: SetNull)
+  payoutId         String?
+  cycle            Cycle?          @relation(fields: [cycleId], references: [id], onDelete: SetNull)
+  cycleId          String?
+  transactionDate  DateTime
+  notes            String?
+  createdAt        DateTime        @default(now())
+  
+  @@index([type])
+  @@index([investorId])
+  @@index([cycleId])
+  @@index([transactionDate])
+}
+
+model Expense {
+  id          String           @id @default(uuid())
+  cage        Cage?            @relation(fields: [cageId], references: [id])
+  cageId      String?
+  cycle       Cycle?           @relation(fields: [cycleId], references: [id])
+  cycleId     String?
+  category    ExpenseCategory
+  amount      Float
+  description String?
+  incurredAt  DateTime
+  createdAt   DateTime         @default(now())
+}
+
+model Revenue {
+  id          String       @id @default(uuid())
+  cage        Cage?        @relation(fields: [cageId], references: [id])
+  cageId      String?
+  cycle       Cycle?       @relation(fields: [cycleId], references: [id])
+  cycleId     String?
+  type        RevenueType
+  amount      Float
+  quantityKg  Float?
+  pricePerKg  Float?
+  occurredAt  DateTime
+  createdAt   DateTime     @default(now())
+}
+
+model BudgetAllocation {
+  id        String           @id @default(uuid())
+  cage      Cage?            @relation(fields: [cageId], references: [id])
+  cageId    String?
+  cycle     Cycle?           @relation(fields: [cycleId], references: [id])
+  cycleId   String?
+  category  ExpenseCategory
+  allocated Float
+  spent     Float            @default(0)
+  createdAt DateTime         @default(now())
+}
+
+model FinancialLog {
+  id         String   @id @default(uuid())
+  type       String
+  entityId   String?
+  entityType String?
+  amount     Float?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+}
+
+model NotificationTemplate {
+  id            String   @id @default(uuid())
+  type          NotificationType
+  channel       NotificationChannel
+  name          String
+  subject       String?
+  body          String   @db.Text
+  variables     String[] @default([])
+  version       Int      @default(1)
+  language      String   @default("en")
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([type, channel, language, isActive])
+}
+
+model Notification {
+  id                String                  @id @default(uuid())
+  recipient         User                    @relation(fields: [recipientId], references: [id])
+  recipientId       String
+  type              NotificationType
+  title             String
+  body              String                  @db.Text
+  data              Json?
+  priority          NotificationPriority    @default(medium)
+  read              Boolean                 @default(false)
+  readAt            DateTime?
+  relatedEntityId   String?
+  relatedEntityType String?
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  deliveries        NotificationDelivery[]
+}
+
+model NotificationDelivery {
+  id               String                 @id @default(uuid())
+  notification     Notification           @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  notificationId   String
+  channel          NotificationChannel
+  status           String                 @default("pending")
+  sentAt           DateTime?
+  deliveredAt      DateTime?
+  failedAt         DateTime?
+  failureReason    String?
+  externalId       String?
+  metadata         Json?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  @@index([notificationId])
+  @@index([channel, status])
+}
+
+model NotificationPreference {
+  id                String                 @id @default(uuid())
+  user              User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId            String                 @unique
+  type              NotificationType
+  channels          NotificationChannel[]
+  frequency         NotificationFrequency  @default(immediate)
+  enabled           Boolean                @default(true)
+  quietHoursStart   String?
+  quietHoursEnd     String?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  @@unique([userId, type])
+}
+
+model NotificationQueue {
+  id          String   @id @default(uuid())
+  jobId       String   @unique
+  userId      String
+  type        NotificationType
+  channels    NotificationChannel[]
+  data        Json
+  priority    Int      @default(0)
+  status      String   @default("pending")
+  retries     Int      @default(0)
+  maxRetries  Int      @default(3)
+  error       String?
+  scheduledAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status, scheduledAt])
+}
+
+// ===== IoT MODELS =====
+
+model IoTDevice {
+  id                String            @id @default(uuid())
+  name              String
+  cage              Cage              @relation(fields: [cageId], references: [id])
+  cageId            String
+  deviceType        String            // "water-quality", "feeding-system", "aeration", etc.
+  serialNumber      String            @unique
+  apiKey            String            @unique
+  status            String            @default("offline") // online, offline, error
+  firmwareVersion   String
+  lastSeen          DateTime?
+  batteryLevel      Int?
+  signalStrength    Int? // dBm for wireless
+  location          String?
+  timezone          String            @default("UTC")
+  sensorTypes       String[] // ["temperature", "pH", "DO", "ammonia"]
+  isActive          Boolean           @default(true)
+  config            Json              @default("{}")
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  
+  readings          SensorReading[]
+  commands          DeviceCommand[]
+  calibrations      SensorCalibration[] @relation("DeviceCalibrations")
+  alerts            IoTAlert[] @relation("DeviceAlerts")
+  configurations    DeviceConfiguration[] @relation("DeviceConfigurations")
+  
+  @@index([cageId])
+  @@index([status])
+  @@index([apiKey])
+}
+
+model SensorReading {
+  id              String      @id @default(uuid())
+  device          IoTDevice   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  deviceId        String
+  cage            Cage        @relation(fields: [cageId], references: [id])
+  cageId          String
+  sensorType      String      // temperature, pH, dissolvedOxygen, ammonia, etc.
+  value           Float
+  unit            String      // °C, %, mg/L, etc.
+  quality         String      @default("good") // good, questionable, bad
+  accuracy        Float?      // ±tolerance
+  timestamp       DateTime    // When sensor reading was taken
+  receivedAt      DateTime    @default(now()) // When server received it
+  batchId         String?     // Group multiple readings from same batch
+  metadata        Json?       // Extra info: sensor calibration drift, etc.
+  flagged         Boolean     @default(false)
+  flagReason      String?
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  @@index([deviceId, timestamp])
+  @@index([cageId, sensorType, timestamp])
+  @@index([timestamp])
+  @@index([flagged])
+}
+
+model SensorAggregation {
+  id              String      @id @default(uuid())
+  cage            Cage        @relation(fields: [cageId], references: [id])
+  cageId          String
+  sensorType      String
+  period          String      // minute, hour, day
+  periodStart     DateTime
+  periodEnd       DateTime
+  value_avg       Float
+  value_min       Float
+  value_max       Float
+  value_stddev    Float?
+  percentile_25   Float?
+  percentile_50   Float?
+  percentile_75   Float?
+  percentile_95   Float?
+  percentile_99   Float?
+  readingCount    Int         // Number of readings in aggregation
+  qualityScore    Float       // 0-100, based on data quality
+  
+  createdAt       DateTime    @default(now())
+  
+  @@unique([cageId, sensorType, period, periodStart])
+  @@index([cageId, sensorType, periodStart])
+}
+
+model IoTAlert {
+  id              String      @id @default(uuid())
+  cage            Cage        @relation(fields: [cageId], references: [id])
+  cageId          String
+  device          IoTDevice?  @relation("DeviceAlerts", fields: [deviceId], references: [id])
+  deviceId        String?
+  alertType       String      // threshold_violation, anomaly_detected, device_offline
+  severity        String      // info, warning, critical
+  sensorType      String?
+  parameter       String?     // temperature, pH, etc.
+  currentValue    Float?
+  threshold       Float?
+  message         String
+  isActive        Boolean     @default(true)
+  acknowledgedBy  String?
+  acknowledgedAt  DateTime?
+  resolvedAt      DateTime?
+  resolutionNotes String?
+  cooldownUntil   DateTime?   // To prevent alert spam
+  metadata        Json?
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  @@index([cageId, isActive, severity])
+  @@index([createdAt])
+}
+
+model AlertThreshold {
+  id              String      @id @default(uuid())
+  cage            Cage        @relation(fields: [cageId], references: [id])
+  cageId          String
+  sensorType      String
+  parameter       String      // temperature, pH, DO, ammonia, etc.
+  minValue        Float?
+  maxValue        Float?
+  severity        String      // warning, critical
+  cooldownMinutes Int         @default(30)
+  enabled         Boolean     @default(true)
+  notes           String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  @@unique([cageId, sensorType, parameter, severity])
+  @@index([cageId])
+}
+
+model DeviceCommand {
+  id              String      @id @default(uuid())
+  device          IoTDevice   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  deviceId        String
+  commandType     String      // feeding, aeration, water_exchange, configuration, etc.
+  parameters      Json
+  status          String      @default("queued") // queued, sent, acknowledged, executed, failed
+  priority        Int         @default(1)
+  sentAt          DateTime?
+  acknowledgedAt  DateTime?
+  executedAt      DateTime?
+  failureReason   String?
+  retries         Int         @default(0)
+  maxRetries      Int         @default(3)
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  @@index([deviceId, status])
+  @@index([status, createdAt])
+}
+
+model SensorCalibration {
+  id              String      @id @default(uuid())
+  device          IoTDevice   @relation("DeviceCalibrations", fields: [deviceId], references: [id])
+  deviceId        String
+  sensorType      String
+  calibrationType String      // zero_point, span_point, multipoint
+  referenceValue  Float
+  measuredValue   Float
+  slope           Float
+  intercept       Float
+  coefficient     Float?
+  driftDetected   Boolean     @default(false)
+  nextDueDate     DateTime?
+  notes           String?
+  
+  performedAt     DateTime    @default(now())
+  
+  @@index([deviceId, sensorType])
+}
+
+model DeviceConfiguration {
+  id              String      @id @default(uuid())
+  device          IoTDevice   @relation("DeviceConfigurations", fields: [deviceId], references: [id])
+  deviceId        String
+  readingInterval Int         // seconds
+  reportingInterval Int       // seconds
+  samplesPerReading Int       // averaging
+  timezone        String
+  ntp_server      String?
+  wifiSsid        String?
+  enableDebug     Boolean     @default(false)
+  config          Json        // Full device config
+  appliedAt       DateTime?
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  @@index([deviceId])
+}
+
+model MLPrediction {
+  id              String      @id @default(uuid())
+  cage            Cage        @relation(fields: [cageId], references: [id])
+  cageId          String
+  modelId         String
+  modelVersion    String
+  predictionType  String      // disease_risk, growth_forecast, mortality_prediction
+  predictions     Json        // {"disease_risk": 0.23, "confidence": 0.92}
+  features        Json        // Input features used
+  createdAt       DateTime    @default(now())
+  
+  @@index([cageId, predictionType])
+}
+
+
