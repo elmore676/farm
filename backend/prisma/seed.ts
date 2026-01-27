@@ -34,21 +34,21 @@ async function main() {
   });
   console.log('✅ Manager user created:', manager.email);
 
-  // Create Regular User
-  const userEmail = 'user@aquaflow.com';
-  const user = await prisma.user.upsert({
-    where: { email: userEmail },
+  // Create Viewer User
+  const viewerEmail = 'viewer@aquaflow.com';
+  const viewer = await prisma.user.upsert({
+    where: { email: viewerEmail },
     update: {},
     create: {
-      name: 'Regular User',
-      email: userEmail,
-      passwordHash: await hashPassword('user123'),
-      role: Role.user,
+      name: 'Viewer User',
+      email: viewerEmail,
+      passwordHash: await hashPassword('viewer123'),
+      role: Role.viewer,
     },
   });
-  console.log('✅ Regular user created:', user.email);
+  console.log('✅ Viewer user created:', viewer.email);
 
-  // Create Additional Test Users
+  // Create Additional Test Users (viewers)
   const testUser1 = await prisma.user.upsert({
     where: { email: 'john@example.com' },
     update: {},
@@ -56,7 +56,7 @@ async function main() {
       name: 'John Doe',
       email: 'john@example.com',
       passwordHash: await hashPassword('password123'),
-      role: Role.user,
+      role: Role.viewer,
     },
   });
   console.log('✅ Test user 1 created:', testUser1.email);
@@ -68,7 +68,7 @@ async function main() {
       name: 'Jane Smith',
       email: 'jane@example.com',
       passwordHash: await hashPassword('password123'),
-      role: Role.user,
+      role: Role.viewer,
     },
   });
   console.log('✅ Test user 2 created:', testUser2.email);
@@ -77,7 +77,7 @@ async function main() {
   console.log('\n📝 Login credentials:');
   console.log('Admin    - Email: admin@aquaflow.com    | Password: admin123');
   console.log('Manager  - Email: manager@aquaflow.com  | Password: manager123');
-  console.log('User     - Email: user@aquaflow.com     | Password: user123');
+  console.log('Viewer   - Email: viewer@aquaflow.com   | Password: viewer123');
   console.log('Test 1   - Email: john@example.com      | Password: password123');
   console.log('Test 2   - Email: jane@example.com      | Password: password123');
 }
