@@ -1,5 +1,6 @@
 import Decimal from 'decimal.js';
-import { PrismaClient, PayoutStatus, CycleStatus, ExpenseCategory } from '@prisma/client';
+import { PayoutStatus, CycleStatus, ExpenseCategory } from '@prisma/client';
+import prisma from '../lib/prisma';
 
 // Helper interfaces for pure calculations (used by unit tests)
 export interface InvestorShare {
@@ -31,7 +32,6 @@ export interface ProfitLossResult {
   profitMargin: Decimal;
 }
 
-const prisma = new PrismaClient();
 // Prisma client for data access
 // After schema regeneration, we can use strongly typed enums and models directly.
 

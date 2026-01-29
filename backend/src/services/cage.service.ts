@@ -1,7 +1,6 @@
-import { PrismaClient, Cage, Cycle, Equipment, CageStatus, CycleStatus, EquipmentStatus } from '@prisma/client';
+import { Cage, Cycle, Equipment, CageStatus, CycleStatus, EquipmentStatus } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { ApiError } from '../utils/apiError';
-
-const prisma = new PrismaClient();
 
 const mapCageToFrontend = (cage: Cage & { cycles: Cycle[]; equipment: Equipment[] }) => {
     const activeCycle = cage.cycles.find(c => c.status === CycleStatus.active);

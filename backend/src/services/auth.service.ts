@@ -1,11 +1,9 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../lib/prisma';
 import { hashPassword, comparePassword } from '../utils/password';
 import { signAccessToken, signRefreshToken } from '../utils/tokens';
 import { ApiError } from '../utils/apiError';
 import { randomUUID } from 'crypto';
 import { env } from '../config/env';
-
-const prisma = new PrismaClient();
 
 export const authService = {
   async register(name: string, email: string, password: string, role: 'admin' | 'manager' | 'viewer' = 'viewer') {
