@@ -22,7 +22,8 @@ export class InvestorService {
         take: limit,
         include: { 
           investments: { include: { cage: true } },
-          payouts: true 
+          payouts: true,
+          transactions: true
         },
         orderBy: { createdAt: 'desc' },
       }),
@@ -38,7 +39,7 @@ export class InvestorService {
   async getById(id: string) {
     const investor = await prisma.investor.findUnique({
       where: { id },
-      include: { investments: { include: { cage: true } }, payouts: true },
+      include: { investments: { include: { cage: true } }, payouts: true, transactions: true },
     });
     if (!investor) throw new Error('Investor not found');
     return investor;
@@ -57,7 +58,7 @@ export class InvestorService {
         status: data.status || 'active',
         kycStatus: data.kycStatus || 'pending',
       },
-      include: { investments: true, payouts: true },
+      include: { investments: true, payouts: true, transactions: true },
     });
   }
 
@@ -75,7 +76,7 @@ export class InvestorService {
         status: data.status,
         kycStatus: data.kycStatus,
       },
-      include: { investments: true, payouts: true },
+      include: { investments: true, payouts: true, transactions: true },
     });
   }
 
@@ -154,6 +155,7 @@ export class InvestorService {
       include: {
         investments: true,
         payouts: true,
+        transactions: true,
       },
     });
   }
@@ -170,6 +172,7 @@ export class InvestorService {
           orderBy: { createdAt: 'desc' },
         },
         investments: true,
+        transactions: true,
       },
     });
 
